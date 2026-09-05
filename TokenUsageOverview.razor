@@ -1,15 +1,18 @@
 @* ============================================================
-   TokenUsageOverview — the ONE shared token-usage view, embeddable by
-   any JabaSoft app (Blazor Server or Blazor Hybrid alike - see
-   Jabasoft's own BlazorWebView-hosted usage). Pass Application to show
-   just that app's own usage (e.g. TabStudio, LocalAiStudio); leave it
-   null to show every app (Jabasoft's cross-app overview).
+   TokenUsageOverview — the ONE token-usage screen for the whole
+   family (Blazor Server or Blazor Hybrid alike - see Jabasoft's own
+   BlazorWebView-hosted usage): same logic, same look, same data
+   (every app's usage, unfiltered) wherever it's embedded. No per-app
+   filtering on purpose - a "user control" only means something if it
+   looks and behaves identically everywhere, so this deliberately does
+   NOT take an Application parameter.
 
    Totals up top, then entries grouped per ISO week as a collapsible
    bar (native <details>, no JS needed), styled after LocalAiStudio's
-   Settings page (dark panel cards, orange accent). Replaces the older
-   plain-table TokenUsageDashboard, which TabStudio/LocalAiStudio used
-   to embed directly and Jabasoft had its own separate copy of.
+   Settings page (dark panel cards, orange accent). Paints its own
+   background rather than relying on the host page's content-area
+   color, so it reads the same regardless of whether the host styled
+   that area light or dark (see .token-overview in the .razor.css).
 
    Consuming apps need this component's scoped CSS bundle linked in
    their host page: _content/Jabasoft.Base/Jabasoft.Base.bundle.scp.css
@@ -86,9 +89,6 @@
 </div>
 
 @code {
-    /// <summary>App name to filter on (e.g. "TabStudio"). Null shows every app.</summary>
-    [Parameter] public string? Application { get; set; }
-
     /// <summary>How far back to show usage for. Defaults to the last 30 days.</summary>
     [Parameter] public TimeSpan Lookback { get; set; } = TimeSpan.FromDays(30);
 
@@ -105,9 +105,7 @@
     protected override async Task OnInitializedAsync()
     {
         var since = DateTimeOffset.UtcNow - Lookback;
-        var entries = Application is null
-            ? await TokenUsageRepository.GetAllEntriesAsync(since, CancellationToken.None)
-            : await TokenUsageRepository.GetEntriesAsync(Application, since, CancellationToken.None);
+        var entries = await TokenUsageRepository.GetAllEntriesAsync(since, CancellationToken.None);
 
         _totalPromptTokens = entries.Sum(e => e.PromptTokens);
         _totalCompletionTokens = entries.Sum(e => e.CompletionTokens);
