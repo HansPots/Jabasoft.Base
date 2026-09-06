@@ -3,7 +3,7 @@
 De ene canonieke plek voor Razor-componenten die door meerdere JabaSoft-apps
 gedeeld worden (Blazor Server én Blazor Hybrid). Startpunt: `TokenUsageOverview`,
 het token-verbruikscherm (totalen + per week inklapbare details) dat Jabasoft,
-JabaSoft.TabStudio en JabaSoftLocalAiStudio alle drie embedden.
+JabaSoft.TabStudio en JabaSoft.LocalAiStudio alle drie embedden.
 
 Oorspronkelijk een project binnen `Jabasoft.Shared`; als los repo hier
 neergezet zodat het als eigenstandig, zelfstandig te bouwen project
