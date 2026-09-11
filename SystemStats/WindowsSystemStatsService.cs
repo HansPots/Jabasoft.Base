@@ -11,10 +11,6 @@ namespace Jabasoft.Base.SystemStats;
 /// drivers. Register as a singleton: CPU usage is delta-based, it needs to
 /// remember the previous GetSystemTimes() sample between calls.
 ///
-/// Originally written for LocalAiStudio.Web's ShellFooter; moved here so
-/// every app's shell footer (Jabasoft, Stylebook, ...) can share one
-/// implementation instead of each carrying its own copy.
-///
 /// No NVIDIA GPU/driver, or "nvidia-smi" not on PATH? VramUsedBytes/
 /// VramTotalBytes just come back null - callers should show "n.b." for that.
 /// </summary>

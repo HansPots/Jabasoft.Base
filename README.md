@@ -1,26 +1,27 @@
 # Jabasoft.Base
 
-De ene canonieke plek voor Razor-componenten die door meerdere JabaSoft-apps
-gedeeld worden (Blazor Server én Blazor Hybrid). Startpunt: `TokenUsageOverview`,
-het token-verbruikscherm (totalen + per week inklapbare details) dat Jabasoft,
-JabaSoft.TabStudio en JabaSoft.LocalAiStudio alle drie embedden.
+Kale, UI-loze class library met code die meerdere JabaSoft-apps (en de
+headless `Jabasoft.Broker`) delen:
 
-Oorspronkelijk een project binnen `Jabasoft.Stylebook`; als los repo hier
-neergezet zodat het als eigenstandig, zelfstandig te bouwen project
-te vinden is naast de andere JabaSoft-repo's.
+- **`AiBroker/`** - de contracts (`IAiBrokerClient`, `AiBrokerClient`,
+  `AiProvider`, request/result-records) waarmee elke app met
+  `Jabasoft.Broker` praat in plaats van rechtstreeks met Ollama/LM Studio,
+  plus `AiBrokerProcessLauncher` (start de broker automatisch als die nog
+  niet draait).
+- **`SystemStats/`** - `ISystemStatsService`/`WindowsSystemStatsService`
+  voor CPU/RAM/VRAM-metingen, herbruikbaar voor een eventuele shell-footer.
+
+Dit project bevat zelf geen UI (geen WPF, geen Blazor/Razor) - elke app die
+er iets mee wil tonen (bijv. een token-verbruikscherm) bouwt dat zelf, als
+eigen WPF-control met `Stylebook.Components`-styling.
 
 ## Hergebruik door een app
 
 ```xml
-<ProjectReference Include="..\..\Jabasoft.Base\Jabasoft.Base.csproj" />
+<ProjectReference Include="..\Jabasoft.Base\Jabasoft.Base.csproj" />
 ```
 
-En in de host-pagina (naast de eigen `*.styles.css`):
-
-```html
-<link rel="stylesheet" href="_content/Jabasoft.Base/Jabasoft.Base.bundle.scp.css" />
-```
-
-Componenten in dit project gebruiken `Shared.Telemetry` (uit het
-`Jabasoft.Stylebook`-repo, als sibling-map onder `C:\Repos`) voor
-databasetoegang - beide repo's moeten dus naast elkaar staan.
+`Shared.Telemetry` (waar tokenverbruik daadwerkelijk wordt weggeschreven)
+leeft in `Jabasoft.Stylebook` en wordt alleen door `Jabasoft.Broker`
+zelf gerefereerd - apps praten met de broker via `IAiBrokerClient`, niet
+rechtstreeks met de telemetrie-database.

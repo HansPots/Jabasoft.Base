@@ -4,11 +4,12 @@ namespace Jabasoft.Base.AiBroker;
 
 /// <summary>
 /// HTTP-based <see cref="IAiBrokerClient"/>. Register with
-/// <c>services.AddHttpClient&lt;IAiBrokerClient, AiBrokerClient&gt;(c =&gt; c.BaseAddress = new Uri(AiBrokerClient.DefaultBaseUrl))</c>
-/// - every failure mode (broker not running, request timeout, bad JSON) is
-/// caught and turned into a failed result rather than an exception, same
-/// as the provider-specific clients this replaces used to do for Ollama/LM
-/// Studio errors directly.
+/// <c>services.AddHttpClient&lt;IAiBrokerClient, AiBrokerClient&gt;(c =&gt; { c.BaseAddress = new Uri(AiBrokerClient.DefaultBaseUrl); c.Timeout = TimeSpan.FromMinutes(5); })</c>
+/// - the 5-minute timeout matters here, it must match the broker's own
+/// chat-call timeout; the .NET default of 100s is too short for a slow
+/// local model. Every failure mode (broker not running, request timeout,
+/// bad JSON) is caught and turned into a failed result rather than an
+/// exception.
 /// </summary>
 public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
 {

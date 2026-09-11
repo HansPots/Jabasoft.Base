@@ -4,14 +4,11 @@ namespace Jabasoft.Base.AiBroker;
 
 /// <summary>
 /// Starts Jabasoft.Broker if it isn't already running. Every JabaSoft app
-/// (TabStudio, LocalAiStudio, Jabasoft) calls <see cref="EnsureRunningAsync"/>
-/// once at its own startup - whichever app happens to run first is the one
-/// that actually starts it, the others just find it already reachable.
+/// calls <see cref="EnsureRunningAsync"/> once at its own startup -
+/// whichever app happens to run first is the one that actually starts it,
+/// the others just find it already reachable.
 ///
-/// Deliberately the opposite of how Jabasoft.App tracks/kills the
-/// TabStudio/LocalAiStudio dev processes it starts (see
-/// Jabasoft.App/MainWindow.xaml.cs's `_startedAppProcesses` + `OnClosed`):
-/// the broker process started here is NEVER tracked or killed by anything
+/// The broker process started here is NEVER tracked or killed by anything
 /// in this codebase, on purpose, so it keeps running after every app
 /// closes - the user stops it manually (Task Manager, or a future "stop
 /// broker" affordance) when they actually want it gone.

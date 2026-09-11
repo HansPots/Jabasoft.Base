@@ -2,9 +2,8 @@ namespace Jabasoft.Base.SystemStats;
 
 /// <summary>
 /// A snapshot of live system resource usage - CPU load, RAM, and GPU
-/// ("Model") VRAM - for a shell footer (see Shared.UI's shell-footer.css /
-/// the ShellFooter pattern it was extracted from). VRAM is null when it
-/// couldn't be determined (e.g. no NVIDIA GPU / driver present).
+/// ("Model") VRAM - for a shell footer. VRAM is null when it couldn't be
+/// determined (e.g. no NVIDIA GPU/driver present).
 /// </summary>
 public sealed record SystemStatsSnapshot(
     double CpuPercent,

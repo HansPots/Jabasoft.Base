@@ -2,11 +2,8 @@ namespace Jabasoft.Base.AiBroker;
 
 /// <summary>
 /// What every JabaSoft app uses to talk to Jabasoft.Broker instead of
-/// calling Ollama/LM Studio directly. Same shape as each app's old
-/// IChatClient/IEmbeddingClient/IAiConnectionTester/IAiModelCatalog
-/// combined into one interface, since they're now all just HTTP calls to
-/// the same broker process rather than four separate provider-aware
-/// clients duplicated per app.
+/// calling Ollama/LM Studio directly - one HTTP-based contract shared by
+/// every app, instead of each app carrying its own provider-aware client.
 /// </summary>
 public interface IAiBrokerClient
 {
