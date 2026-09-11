@@ -30,7 +30,7 @@ public static class AiBrokerProcessLauncher
         CancellationToken cancellationToken = default)
     {
         using var probeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
-        if (await IsHealthyAsync(probeClient, baseUrl))
+        if (await IsHealthyAsync(probeClient, baseUrl).ConfigureAwait(false))
         {
             return;
         }
@@ -70,12 +70,12 @@ public static class AiBrokerProcessLauncher
         var deadline = DateTime.UtcNow.Add(StartupTimeout);
         while (DateTime.UtcNow < deadline)
         {
-            if (await IsHealthyAsync(pollClient, baseUrl))
+            if (await IsHealthyAsync(pollClient, baseUrl).ConfigureAwait(false))
             {
                 return;
             }
 
-            await Task.Delay(500, cancellationToken);
+            await Task.Delay(500, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -83,7 +83,7 @@ public static class AiBrokerProcessLauncher
     {
         try
         {
-            using var response = await client.GetAsync($"{baseUrl.TrimEnd('/')}/health");
+            using var response = await client.GetAsync($"{baseUrl.TrimEnd('/')}/health").ConfigureAwait(false);
             return response.IsSuccessStatusCode;
         }
         catch
