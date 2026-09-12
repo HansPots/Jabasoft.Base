@@ -20,8 +20,3 @@ eigen WPF-control met `Stylebook.Components`-styling.
 ```xml
 <ProjectReference Include="..\Jabasoft.Base\Jabasoft.Base.csproj" />
 ```
-
-`Shared.Telemetry` (waar tokenverbruik daadwerkelijk wordt weggeschreven)
-leeft in `Jabasoft.Stylebook` en wordt alleen door `Jabasoft.Broker`
-zelf gerefereerd - apps praten met de broker via `IAiBrokerClient`, niet
-rechtstreeks met de telemetrie-database.

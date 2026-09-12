@@ -5,9 +5,8 @@ public sealed record ChatMessage(string Role, string Content);
 
 /// <summary>
 /// A chat request sent to Jabasoft.Broker. <see cref="Application"/> is the
-/// calling app's own name (e.g. "Stylebook", "TabStudio") - the broker uses
-/// it to attribute token usage when it records the call to the shared
-/// JabasoftBase database, so apps never record their own usage.
+/// calling app's own name (e.g. "Stylebook", "TabStudio") - identifies which
+/// app made the call, for whenever the broker attributes usage again.
 /// </summary>
 public sealed record ChatRequest(
     AiProvider Provider,
