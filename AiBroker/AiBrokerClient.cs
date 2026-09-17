@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Net.Http.Json;
 
 namespace Jabasoft.Base.AiBroker;
@@ -14,6 +16,25 @@ namespace Jabasoft.Base.AiBroker;
 public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
 {
     public const string DefaultBaseUrl = "http://localhost:5310";
+
+    /// <summary>
+    /// De broker schrijft AiProvider als tekst ("LmStudio"), niet als
+    /// getal - zie ConfigureHttpJsonOptions in zijn Program.cs. Zonder deze
+    /// converter loopt het teruglezen van een instelling daarop stuk.
+    /// </summary>
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() },
+    };
+
+    /// <summary>
+    /// Een client voor de broker op zijn standaardadres, voor een app die
+    /// geen dependency injection heeft opgetuigd. De ruime wachttijd is
+    /// dezelfde als hierboven beschreven: een traag lokaal model mag er
+    /// minuten over doen.
+    /// </summary>
+    public static AiBrokerClient CreateDefault(string baseUrl = DefaultBaseUrl) =>
+        new(new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromMinutes(5) });
 
     public async Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken)
     {
@@ -72,6 +93,120 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             return new ConnectionTestResult(false, $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<AiSettingsResult> GetSettingsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync("/api/settings", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AiSettingsResult(false, AiSettings.Default, $"AI broker returned {(int)response.StatusCode}.");
+            }
+
+            var settings = await response.Content.ReadFromJsonAsync<AiSettings>(JsonOptions, cancellationToken);
+            return settings is null
+                ? new AiSettingsResult(false, AiSettings.Default, "Empty response from the AI broker.")
+                : new AiSettingsResult(true, settings, null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new AiSettingsResult(false, AiSettings.Default, $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<AiSettingsResult> SaveSettingsAsync(AiSettings settings, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        try
+        {
+            using var response = await httpClient.PutAsJsonAsync("/api/settings", settings, JsonOptions, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new AiSettingsResult(false, settings, $"AI broker returned {(int)response.StatusCode}.");
+            }
+
+            var saved = await response.Content.ReadFromJsonAsync<AiSettings>(JsonOptions, cancellationToken);
+            return new AiSettingsResult(true, saved ?? settings, null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new AiSettingsResult(false, settings, $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<ModelListResult> ListConfiguredModelsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync("/api/settings/models", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new ModelListResult(false, [], $"AI broker returned {(int)response.StatusCode}.");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<ModelListResult>(JsonOptions, cancellationToken);
+            return result ?? new ModelListResult(false, [], "Empty response from the AI broker.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new ModelListResult(false, [], $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<TokenUsageStatus> GetUsageStatusAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync("/api/usage/status", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new TokenUsageStatus(false, $"AI broker returned {(int)response.StatusCode}.");
+            }
+
+            var status = await response.Content.ReadFromJsonAsync<TokenUsageStatus>(JsonOptions, cancellationToken);
+            return status ?? new TokenUsageStatus(false, "Empty response from the AI broker.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new TokenUsageStatus(false, $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<IReadOnlyList<TokenUsageWeek>> GetUsageWeeksAsync(CancellationToken cancellationToken) =>
+        await HaalAsync<TokenUsageWeek>("/api/usage/weeks", cancellationToken);
+
+    public async Task<IReadOnlyList<TokenUsageModel>> GetUsageModelsAsync(CancellationToken cancellationToken) =>
+        await HaalAsync<TokenUsageModel>("/api/usage/models", cancellationToken);
+
+    public async Task<IReadOnlyList<TokenUsageEntry>> GetUsageEntriesAsync(string week, CancellationToken cancellationToken) =>
+        await HaalAsync<TokenUsageEntry>($"/api/usage/entries?week={Uri.EscapeDataString(week)}", cancellationToken);
+
+    /// <summary>
+    /// Haalt een lijst op en geeft een LEGE lijst terug als er iets misgaat.
+    /// Een overzicht is geen reden om een scherm te laten struikelen: dan
+    /// staat er niets in plaats van dat er niets meer werkt. Wat er wél aan
+    /// de hand is, ziet de gebruiker aan de gezondheidspil.
+    /// </summary>
+    private async Task<IReadOnlyList<T>> HaalAsync<T>(string url, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.GetAsync(url, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return [];
+            }
+
+            var lijst = await response.Content.ReadFromJsonAsync<List<T>>(JsonOptions, cancellationToken);
+            return lijst ?? [];
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return [];
         }
     }
 
