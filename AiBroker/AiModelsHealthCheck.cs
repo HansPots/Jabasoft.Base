@@ -25,46 +25,50 @@ public sealed class AiModelsHealthCheck(IAiBrokerClient client, ActivityLog? log
     public string Name => "AI models";
 
     /// <inheritdoc />
-    public async Task<bool> IsHealthyAsync(IProgress<string> progress, CancellationToken cancellationToken)
+    public async Task<HealthCheckOutcome> CheckAsync(IProgress<string> progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(progress);
 
         var settings = await client.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
         if (!settings.Success)
         {
-            _log.Add("app", $"AI-instelling niet op te halen: {settings.ErrorMessage}");
-            return false;
+            return Meld(HealthCheckOutcome.Fout($"Instelling niet op te halen: {settings.ErrorMessage}"));
         }
 
         var ingesteld = settings.Settings.ConfiguredModels;
         if (ingesteld.Count == 0)
         {
             // Niets ingesteld is geen geldige toestand: er is dan geen model
-            // om mee te werken. Rood dus, met in het log waar je het zet.
-            _log.Add("app", "Geen AI-model ingesteld - zie Settings, kaart AI.");
-            return false;
+            // om mee te werken.
+            return Meld(HealthCheckOutcome.Fout("Geen model ingesteld - zie Settings, kaart AI"));
         }
-
-        progress.Report($"Checking {settings.Settings.Provider}");
 
         var aanwezig = await client.ListConfiguredModelsAsync(cancellationToken).ConfigureAwait(false);
         if (!aanwezig.Success)
         {
-            _log.Add("app", $"Modellijst niet op te halen bij {settings.Settings.ActiveServerUrl}: {aanwezig.ErrorMessage}");
-            return false;
+            return Meld(HealthCheckOutcome.Fout($"Modellijst niet op te halen bij {settings.Settings.ActiveServerUrl}: {aanwezig.ErrorMessage}"));
         }
 
         var ontbreekt = ingesteld
             .Where(model => !aanwezig.Models.Contains(model, StringComparer.OrdinalIgnoreCase))
             .ToList();
 
-        if (ontbreekt.Count > 0)
-        {
-            _log.Add("app", $"Model niet aanwezig op {settings.Settings.Provider}: {string.Join(", ", ontbreekt)}");
-            return false;
-        }
+        return ontbreekt.Count > 0
+            ? Meld(HealthCheckOutcome.Fout($"Niet aanwezig op {settings.Settings.Provider}: {string.Join(", ", ontbreekt)}"))
+            : Meld(HealthCheckOutcome.Ok($"Aanwezig: {string.Join(", ", ingesteld)}"));
+    }
 
-        _log.Add("app", $"AI-modellen aanwezig: {string.Join(", ", ingesteld)}");
-        return true;
+    /// <summary>
+    /// Zet de uitslag ook in het activiteitenlog. Dat blijft nuttig naast
+    /// het gezondheidsoverzicht: in het log zie je de volgorde waarin het
+    /// bij het opstarten gebeurde, met een tijdstip erbij.
+    /// </summary>
+    private HealthCheckOutcome Meld(HealthCheckOutcome uitkomst)
+    {
+        _log.Add("app", uitkomst.Healthy
+            ? $"AI-modellen: {uitkomst.Message}"
+            : $"AI-modellen niet in orde: {uitkomst.Message}");
+
+        return uitkomst;
     }
 }

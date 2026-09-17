@@ -20,20 +20,20 @@ public sealed class DatabaseHealthCheck(IAiBrokerClient client, ActivityLog? log
     private readonly ActivityLog _log = log ?? ActivityLog.Shared;
 
     /// <inheritdoc />
-    public string Name => "database";
+    public string Name => "Database";
 
     /// <inheritdoc />
-    public async Task<bool> IsHealthyAsync(IProgress<string> progress, CancellationToken cancellationToken)
+    public async Task<HealthCheckOutcome> CheckAsync(IProgress<string> progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(progress);
 
         var status = await client.GetUsageStatusAsync(cancellationToken).ConfigureAwait(false);
         if (status.Available)
         {
-            return true;
+            return HealthCheckOutcome.Ok("JabasoftBase bereikbaar, tokentabel aanwezig");
         }
 
         _log.Add("app", $"Database niet bereikbaar: {status.Message}");
-        return false;
+        return HealthCheckOutcome.Fout(status.Message ?? "Niet bereikbaar");
     }
 }

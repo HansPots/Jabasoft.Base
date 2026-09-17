@@ -25,13 +25,13 @@ public sealed class AiBrokerHealthCheck(
     public string Name => "AI broker";
 
     /// <inheritdoc />
-    public async Task<bool> IsHealthyAsync(IProgress<string> progress, CancellationToken cancellationToken)
+    public async Task<HealthCheckOutcome> CheckAsync(IProgress<string> progress, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(progress);
 
         if (await IsReachableAsync(cancellationToken).ConfigureAwait(false))
         {
-            return true;
+            return HealthCheckOutcome.Ok($"Draaide al op {baseUrl}");
         }
 
         progress.Report("Starting AI broker");
@@ -41,7 +41,9 @@ public sealed class AiBrokerHealthCheck(
 
         // EnsureRunningAsync wacht zelf tot hij antwoordt of tot zijn
         // wachttijd om is; deze laatste probe zegt welke van de twee.
-        return await IsReachableAsync(cancellationToken).ConfigureAwait(false);
+        return await IsReachableAsync(cancellationToken).ConfigureAwait(false)
+            ? HealthCheckOutcome.Ok($"Opgestart op {baseUrl}")
+            : HealthCheckOutcome.Fout($"Niet bereikbaar op {baseUrl} - ook niet na opstarten");
     }
 
     private async Task<bool> IsReachableAsync(CancellationToken cancellationToken)
