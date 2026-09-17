@@ -8,10 +8,11 @@ namespace Jabasoft.Base.AiBroker;
 /// whichever app happens to run first is the one that actually starts it,
 /// the others just find it already reachable.
 ///
-/// The broker process started here is NEVER tracked or killed by anything
-/// in this codebase, on purpose, so it keeps running after every app
-/// closes - the user stops it manually (Task Manager, or a future "stop
-/// broker" affordance) when they actually want it gone.
+/// Bij het afsluiten roept een app <see cref="StopIfUnused"/> aan: is
+/// hij de laatste JabaSoft-applicatie die draait, dan gaat de broker mee
+/// uit. Draait er nog een andere, dan blijft hij staan - die heeft hem
+/// immers nodig. Zo blijft er na een dag werken geen brokerproces hangen,
+/// zonder dat een app de broker onder een ander zijn voeten wegtrekt.
 ///
 /// Known limitation: a plain <see cref="Process.Start(ProcessStartInfo)"/>
 /// child can still be killed if the *launching* process itself runs inside
@@ -76,6 +77,57 @@ public static class AiBrokerProcessLauncher
             }
 
             await Task.Delay(500, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>De procesnaam van de broker - waarop we hem terugvinden om hem te stoppen.</summary>
+    private const string BrokerProcessName = "Jabasoft.Broker";
+
+    /// <summary>
+    /// Stopt de broker, maar alleen als deze applicatie de laatste is die
+    /// hem nog nodig had. Roep dit aan bij het afsluiten.
+    ///
+    /// "Nog een andere applicatie" = een draaiend proces waarvan de naam met
+    /// <paramref name="familyPrefix"/> begint, de broker zelf en dit proces
+    /// niet meegerekend. Dat is een simpele regel die op deze machine klopt
+    /// omdat de hele familie Jabasoft.* heet; hernoem je een app, denk er
+    /// dan aan dat hij hier onder valt.
+    /// </summary>
+    public static void StopIfUnused(string familyPrefix = "Jabasoft.")
+    {
+        var self = Environment.ProcessId;
+
+        var anderen = Process.GetProcesses()
+            .Where(p => p.Id != self
+                && !string.Equals(p.ProcessName, BrokerProcessName, StringComparison.OrdinalIgnoreCase)
+                && p.ProcessName.StartsWith(familyPrefix, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        foreach (var proces in anderen)
+        {
+            proces.Dispose();
+        }
+
+        if (anderen.Count > 0)
+        {
+            return;
+        }
+
+        foreach (var broker in Process.GetProcessesByName(BrokerProcessName))
+        {
+            try
+            {
+                broker.Kill();
+            }
+            catch (Exception)
+            {
+                // Al gestopt, of we mogen er niet bij. Niets aan te doen bij
+                // het afsluiten, en zeker niets om de app voor op te houden.
+            }
+            finally
+            {
+                broker.Dispose();
+            }
         }
     }
 
