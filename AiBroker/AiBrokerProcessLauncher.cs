@@ -87,20 +87,21 @@ public static class AiBrokerProcessLauncher
     /// Stopt de broker, maar alleen als deze applicatie de laatste is die
     /// hem nog nodig had. Roep dit aan bij het afsluiten.
     ///
-    /// "Nog een andere applicatie" = een draaiend proces waarvan de naam met
-    /// <paramref name="familyPrefix"/> begint, de broker zelf en dit proces
-    /// niet meegerekend. Dat is een simpele regel die op deze machine klopt
-    /// omdat de hele familie Jabasoft.* heet; hernoem je een app, denk er
-    /// dan aan dat hij hier onder valt.
+    /// "Nog een andere applicatie" = een draaiend proces dat in
+    /// <see cref="JabasoftApps.ProcessNames"/> staat, dit proces niet
+    /// meegerekend.
+    ///
+    /// Dat was eerder een voorvoegsel ("Jabasoft."), en dat ging mis zodra
+    /// er een tweede applicatie kwam: LocalAiStudio.App begint daar niet
+    /// mee, dus nam Jabasoft bij het afsluiten de broker mee terwijl die
+    /// er nog op leunde.
     /// </summary>
-    public static void StopIfUnused(string familyPrefix = "Jabasoft.")
+    public static void StopIfUnused()
     {
         var self = Environment.ProcessId;
 
         var anderen = Process.GetProcesses()
-            .Where(p => p.Id != self
-                && !string.Equals(p.ProcessName, BrokerProcessName, StringComparison.OrdinalIgnoreCase)
-                && p.ProcessName.StartsWith(familyPrefix, StringComparison.OrdinalIgnoreCase))
+            .Where(p => p.Id != self && JabasoftApps.IsFamily(p.ProcessName))
             .ToList();
 
         foreach (var proces in anderen)
