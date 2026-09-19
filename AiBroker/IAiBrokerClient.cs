@@ -9,6 +9,19 @@ public interface IAiBrokerClient
 {
     Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Hetzelfde gesprek, maar het antwoord komt stukje bij beetje binnen
+    /// in plaats van in één keer aan het eind. Daarmee kan een scherm de
+    /// tekst laten aangroeien terwijl het model typt, en een teller laten
+    /// meelopen in plaats van twaalf seconden stil te staan.
+    ///
+    /// Het laatste stukje draagt <see cref="ChatStreamChunk.Done"/> en de
+    /// tokens; ging er iets mis, dan draagt het de reden. De broker
+    /// schrijft het verbruik ook in dat geval zelf weg - de aanroeper
+    /// hoeft daar niets voor te doen.
+    /// </summary>
+    IAsyncEnumerable<ChatStreamChunk> ChatStreamAsync(ChatRequest request, CancellationToken cancellationToken);
+
     Task<EmbedResult> EmbedAsync(EmbedRequest request, CancellationToken cancellationToken);
 
     Task<ConnectionTestResult> TestConnectionAsync(AiProvider provider, string serverUrl, string model, CancellationToken cancellationToken);

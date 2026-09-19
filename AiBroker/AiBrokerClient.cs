@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Net.Http.Json;
@@ -52,6 +53,119 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             return new ChatResult(false, string.Empty, $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Leest de stroom die /api/chat/stream teruggeeft: één JSON-object
+    /// per regel (NDJSON). Geen SSE - beide kanten zijn van ons, en een
+    /// regel lezen is minder werk dan een gebeurtenissenformaat uit
+    /// elkaar halen.
+    ///
+    /// Belangrijk is ResponseHeadersRead: zonder dat wacht HttpClient tot
+    /// het hele antwoord binnen is, en dan valt er niets meer te stromen.
+    ///
+    /// Wat opvalt in de vorm: een mislukking wordt eerst in een variabele
+    /// gezet en pas daarna teruggegeven. Dat moet - C# staat geen yield
+    /// in een catch toe - maar het leest ook eerlijker: er is één plek
+    /// waar het einde vandaan komt.
+    /// </summary>
+    public async IAsyncEnumerable<ChatStreamChunk> ChatStreamAsync(
+        ChatRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        using var bericht = new HttpRequestMessage(HttpMethod.Post, "/api/chat/stream")
+        {
+            Content = JsonContent.Create(request, options: JsonOptions),
+        };
+
+        HttpResponseMessage? response = null;
+        string? fout = null;
+
+        try
+        {
+            response = await httpClient.SendAsync(bericht, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            fout = $"Could not reach the AI broker: {ex.Message}";
+        }
+
+        if (fout is not null || response is null)
+        {
+            yield return new ChatStreamChunk(Done: true, ErrorMessage: fout ?? "No response from the AI broker.");
+            yield break;
+        }
+
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode)
+            {
+                yield return new ChatStreamChunk(Done: true, ErrorMessage: $"AI broker returned {(int)response.StatusCode}.");
+                yield break;
+            }
+
+            using var stroom = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var lezer = new StreamReader(stroom);
+
+            while (true)
+            {
+                string? regel = null;
+
+                try
+                {
+                    regel = await lezer.ReadLineAsync(cancellationToken);
+                }
+                catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException)
+                {
+                    fout = $"The answer stopped halfway: {ex.Message}";
+                }
+
+                if (fout is not null)
+                {
+                    yield return new ChatStreamChunk(Done: true, ErrorMessage: fout);
+                    yield break;
+                }
+
+                // Niets meer te lezen: de broker heeft de verbinding
+                // gesloten zonder afsluitend stukje. Dan sluiten we zelf
+                // af, anders blijft de aanroeper wachten.
+                if (regel is null)
+                {
+                    yield return new ChatStreamChunk(Done: true);
+                    yield break;
+                }
+
+                if (string.IsNullOrWhiteSpace(regel))
+                {
+                    continue;
+                }
+
+                ChatStreamChunk? stukje = null;
+
+                try
+                {
+                    stukje = JsonSerializer.Deserialize<ChatStreamChunk>(regel, JsonOptions);
+                }
+                catch (JsonException)
+                {
+                    // Een onleesbare regel is geen reden om te stoppen: de
+                    // volgende kan prima zijn, en het echte einde komt met
+                    // Done.
+                }
+
+                if (stukje is null)
+                {
+                    continue;
+                }
+
+                yield return stukje;
+
+                if (stukje.Done)
+                {
+                    yield break;
+                }
+            }
         }
     }
 
