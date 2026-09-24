@@ -6,4 +6,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Jabasoft.Ai.Data is zijn eigen project, in een submap van deze
+         repo omdat er (nog) geen aparte repo voor is - net als
+         Stylebook.Data naast Stylebook.Components in Jabasoft.Stylebook.
+         Zonder deze uitsluiting pakt de standaard SDK-glob hierboven zijn
+         bestanden ook mee in DIT project, dat geen Entity Framework kent. -->
+    <Compile Remove="Jabasoft.Ai.Data\**" />
+    <EmbeddedResource Remove="Jabasoft.Ai.Data\**" />
+    <None Remove="Jabasoft.Ai.Data\**" />
+  </ItemGroup>
+
 </Project>

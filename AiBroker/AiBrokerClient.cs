@@ -32,10 +32,13 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
     /// Een client voor de broker op zijn standaardadres, voor een app die
     /// geen dependency injection heeft opgetuigd. De ruime wachttijd is
     /// dezelfde als hierboven beschreven: een traag lokaal model mag er
-    /// minuten over doen.
+    /// minuten over doen. Geeft een app niets mee voor <paramref name="timeout"/>,
+    /// dan blijft dat de vaste 5 minuten van voorheen - een app die hier
+    /// tegenaan loopt (zie AiSettings.ChatTimeoutSeconden - LocalAiStudio.App leest die bij het opstarten)
+    /// geeft zelf een ruimere waarde mee.
     /// </summary>
-    public static AiBrokerClient CreateDefault(string baseUrl = DefaultBaseUrl) =>
-        new(new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = TimeSpan.FromMinutes(5) });
+    public static AiBrokerClient CreateDefault(string baseUrl = DefaultBaseUrl, TimeSpan? timeout = null) =>
+        new(new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = timeout ?? TimeSpan.FromMinutes(5) });
 
     public async Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken)
     {
@@ -185,6 +188,44 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
             return new EmbedResult(false, [], $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<SearchIndexResult> IndexSearchAsync(SearchIndexRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync("/api/search/index", request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new SearchIndexResult(false, 0, 0, $"AI broker returned {(int)response.StatusCode}.");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<SearchIndexResult>(cancellationToken);
+            return result ?? new SearchIndexResult(false, 0, 0, "Empty response from the AI broker.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new SearchIndexResult(false, 0, 0, $"Could not reach the AI broker: {ex.Message}");
+        }
+    }
+
+    public async Task<SemanticSearchResult> SearchSemanticAsync(SemanticSearchRequest request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsJsonAsync("/api/search/semantic", request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return new SemanticSearchResult(false, [], $"AI broker returned {(int)response.StatusCode}.");
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<SemanticSearchResult>(cancellationToken);
+            return result ?? new SemanticSearchResult(false, [], "Empty response from the AI broker.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return new SemanticSearchResult(false, [], $"Could not reach the AI broker: {ex.Message}");
         }
     }
 

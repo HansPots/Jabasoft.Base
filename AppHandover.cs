@@ -118,6 +118,46 @@ public static class AppHandover
         }
     }
 
+    /// <summary>
+    /// Zoekt een al draaiend exemplaar van DEZE applicatie (zelfde procesnaam,
+    /// een ANDER proces-ID) en haalt dat naar voren. Roep dit als eerste aan
+    /// bij het opstarten, vóór er een eigen venster gemaakt wordt: vindt dit
+    /// iets, dan hoort de aanroeper meteen af te sluiten in plaats van door
+    /// te gaan - anders staan er zo twee vensters van dezelfde app naast
+    /// elkaar, allebei half opgestart.
+    ///
+    /// Geeft false als er niets draait (of het venster niet te vinden is);
+    /// dan gaat het opstarten gewoon verder zoals altijd.
+    /// </summary>
+    public static bool ActivateExistingInstance()
+    {
+        var procesnaam = Process.GetCurrentProcess().ProcessName;
+        var bestaand = Hoofdvenster(procesnaam, Environment.ProcessId);
+
+        if (bestaand == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var plaatsing = new WindowPlacement { length = Marshal.SizeOf<WindowPlacement>() };
+        if (GetWindowPlacement(bestaand, ref plaatsing))
+        {
+            if (plaatsing.showCmd is ShowHide or ShowMinimized)
+            {
+                plaatsing.showCmd = ShowNormal;
+            }
+
+            SetWindowPlacement(bestaand, ref plaatsing);
+        }
+        else
+        {
+            ShowWindow(bestaand, ShowNormal);
+        }
+
+        SetForegroundWindow(bestaand);
+        return true;
+    }
+
     /// <summary>Zoekt het venster van de applicatie; draait ze niet, dan wordt ze gestart en wachten we tot er een venster is.</summary>
     private static IntPtr ZoekOfStart(string executablePath)
     {

@@ -24,6 +24,17 @@ public interface IAiBrokerClient
 
     Task<EmbedResult> EmbedAsync(EmbedRequest request, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// (Her)indexeert de meegegeven bestanden van een project voor
+    /// semantisch zoeken: elk bestand wordt geëmbed en weggeschreven in de
+    /// AI-database. Opnieuw indexeren van hetzelfde bestand vervangt de
+    /// oude rij.
+    /// </summary>
+    Task<SearchIndexResult> IndexSearchAsync(SearchIndexRequest request, CancellationToken cancellationToken);
+
+    /// <summary>Zoekt semantisch binnen wat er voor dit project geïndexeerd staat - zie <see cref="IndexSearchAsync"/>.</summary>
+    Task<SemanticSearchResult> SearchSemanticAsync(SemanticSearchRequest request, CancellationToken cancellationToken);
+
     Task<ConnectionTestResult> TestConnectionAsync(AiProvider provider, string serverUrl, string model, CancellationToken cancellationToken);
 
     /// <summary>
