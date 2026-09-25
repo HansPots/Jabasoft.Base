@@ -2,8 +2,13 @@ using System.Text.Json.Serialization;
 
 namespace Jabasoft.Base.AiBroker;
 
-/// <summary>One turn in a chat conversation. Role is "system", "user", or "assistant".</summary>
-public sealed record ChatMessage(string Role, string Content);
+/// <summary>
+/// One turn in a chat conversation. Role is "system", "user", or "assistant".
+/// <see cref="Images"/> zijn optionele afbeeldingen bij dit bericht, als
+/// base64 (zonder "data:"-voorvoegsel) van een PNG/JPEG - alleen zinvol voor
+/// een model dat beelden kan lezen (een "vision"-model).
+/// </summary>
+public sealed record ChatMessage(string Role, string Content, IReadOnlyList<string>? Images = null);
 
 /// <summary>
 /// A chat request sent to Jabasoft.Broker. <see cref="Application"/> is the
@@ -65,13 +70,19 @@ public sealed record ConnectionTestResult(bool Success, string Message);
 /// nakijken. Staat hij leeg, dan gebeurt er GEEN controle (bewust geen
 /// terugval op CodeModel/ChatModel: dat zou het antwoord alsnog door
 /// zichzelf laten nakijken) - deze instelling is optioneel.
+///
+/// <see cref="BeeldModel"/> is het model dat een bijgevoegde afbeelding
+/// leest en beschrijft (een model met beeldherkenning, zoals gemma3). Die
+/// beschrijving gaat als tekst naar het gewone model - zo hoeft het
+/// codemodel zelf geen plaatjes te kunnen. Leeg = geen afbeeldingen
+/// mogelijk; deze instelling is dus optioneel.
 /// </summary>
-public sealed record AiServerSettings(string Url, string ChatModel, string EmbedModel, string CodeModel = "", string ControleModel = "")
+public sealed record AiServerSettings(string Url, string ChatModel, string EmbedModel, string CodeModel = "", string ControleModel = "", string BeeldModel = "")
 {
     /// <summary>De ingestelde modellen, zonder de lege. Dit is wat er aanwezig moet zijn.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> Models =>
-        new[] { ChatModel, EmbedModel, CodeModel, ControleModel }.Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        new[] { ChatModel, EmbedModel, CodeModel, ControleModel, BeeldModel }.Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 }
 
 /// <summary>
