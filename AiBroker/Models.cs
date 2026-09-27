@@ -14,6 +14,9 @@ public sealed record ChatMessage(string Role, string Content, IReadOnlyList<stri
 /// A chat request sent to Jabasoft.Broker. <see cref="Application"/> is the
 /// calling app's own name (e.g. "Stylebook", "TabStudio") - identifies which
 /// app made the call, for whenever the broker attributes usage again.
+/// <see cref="Onderdeel"/> is het onderdeel BINNEN die app dat de aanroep
+/// deed (bijvoorbeeld "Daily chat", "Codevoorstel", "Afbeelding"), zodat het
+/// tokenoverzicht kan laten zien waar het verbruik heen gaat. Optioneel.
 /// </summary>
 public sealed record ChatRequest(
     AiProvider Provider,
@@ -21,7 +24,8 @@ public sealed record ChatRequest(
     string Model,
     IReadOnlyList<ChatMessage> Messages,
     string Application,
-    double? Temperature = null);
+    double? Temperature = null,
+    string? Onderdeel = null);
 
 /// <summary>
 /// The outcome of a chat request. Zowel Ollama als LM Studio geven vraag en
@@ -33,7 +37,7 @@ public sealed record ChatRequest(
 public sealed record ChatResult(bool Success, string Reply, string? ErrorMessage, long PromptTokens = 0, long CompletionTokens = 0);
 
 /// <summary>An embedding request sent to Jabasoft.Broker.</summary>
-public sealed record EmbedRequest(AiProvider Provider, string ServerUrl, string Model, string Text, string Application);
+public sealed record EmbedRequest(AiProvider Provider, string ServerUrl, string Model, string Text, string Application, string? Onderdeel = null);
 
 /// <summary>The outcome of an embedding request.</summary>
 public sealed record EmbedResult(bool Success, float[] Vector, string? ErrorMessage, long TokensUsed = 0);
@@ -76,13 +80,67 @@ public sealed record ConnectionTestResult(bool Success, string Message);
 /// beschrijving gaat als tekst naar het gewone model - zo hoeft het
 /// codemodel zelf geen plaatjes te kunnen. Leeg = geen afbeeldingen
 /// mogelijk; deze instelling is dus optioneel.
+///
+/// <see cref="Sterren"/> en <see cref="MaxDenktijdSeconden"/> zijn per
+/// MODELNAAM (niet alleen de vier hierboven, elk model in de keuzelijst kan
+/// erin staan): een handmatige kwaliteitsbeoordeling (0-5, overschrijft de
+/// automatische schatting op grootte - zie Jabasoft.App.Controls.Modelkeuze)
+/// en hoe lang een model hardop mag nadenken voordat de broker het antwoord
+/// afbreekt (0 of ontbrekend = geen apart limiet, de gewone
+/// <see cref="AiSettings.ChatTimeoutSeconden"/> blijft dan gelden). Beide
+/// optioneel en leeg bij een verse installatie.
 /// </summary>
-public sealed record AiServerSettings(string Url, string ChatModel, string EmbedModel, string CodeModel = "", string ControleModel = "", string BeeldModel = "")
+public sealed record AiServerSettings(
+    string Url,
+    string ChatModel,
+    string EmbedModel,
+    string CodeModel = "",
+    string ControleModel = "",
+    string BeeldModel = "",
+    IReadOnlyDictionary<string, int>? Sterren = null,
+    IReadOnlyDictionary<string, int>? MaxDenktijdSeconden = null)
 {
     /// <summary>De ingestelde modellen, zonder de lege. Dit is wat er aanwezig moet zijn.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> Models =>
         new[] { ChatModel, EmbedModel, CodeModel, ControleModel, BeeldModel }.Where(m => !string.IsNullOrWhiteSpace(m)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+    /// <summary>
+    /// De sleutel waaronder de STANDAARD voor alle modellen staat (Jabasoft,
+    /// bovenaan de AI-kaart) - geen echte modelnaam, dus botst nooit met een
+    /// server die toevallig zo'n model aanbiedt.
+    /// </summary>
+    public const string StandaardSleutel = "*";
+
+    /// <summary>
+    /// De handmatige sterren (0-5) voor dit model: het model zelf als dat
+    /// ingesteld staat, anders de standaard voor alle modellen, anders null
+    /// (dan geldt de automatische schatting op grootte).
+    /// </summary>
+    public int? SterrenVoor(string model) => Opzoeken(Sterren, model);
+
+    /// <summary>
+    /// De ingestelde maximale denktijd (seconden) voor dit model: het model
+    /// zelf, anders de standaard voor alle modellen, anders 0 (geen apart
+    /// limiet - de gewone ChatTimeoutSeconden blijft dan gelden).
+    /// </summary>
+    public int DenktijdVoor(string model) => Opzoeken(MaxDenktijdSeconden, model) ?? 0;
+
+    private static int? Opzoeken(IReadOnlyDictionary<string, int>? waarden, string model)
+    {
+        if (waarden is null)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(model) && !string.Equals(model, StandaardSleutel, StringComparison.Ordinal)
+            && waarden.TryGetValue(model, out var eigen))
+        {
+            return eigen;
+        }
+
+        return waarden.TryGetValue(StandaardSleutel, out var standaard) ? standaard : null;
+    }
 }
 
 /// <summary>

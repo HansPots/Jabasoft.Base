@@ -73,4 +73,7 @@ public interface IAiBrokerClient
 
     /// <summary>De losse aanroepen van één week, nieuwste eerst. <paramref name="week"/> is de sleutel uit <see cref="TokenUsageWeek.Week"/>.</summary>
     Task<IReadOnlyList<TokenUsageEntry>> GetUsageEntriesAsync(string week, CancellationToken cancellationToken);
+
+    /// <summary>Het verbruik per onderdeel van de laatste <paramref name="dagen"/> dagen, het zwaarste eerst.</summary>
+    Task<IReadOnlyList<TokenUsageOnderdeel>> GetUsageOnderdelenAsync(int dagen, CancellationToken cancellationToken);
 }

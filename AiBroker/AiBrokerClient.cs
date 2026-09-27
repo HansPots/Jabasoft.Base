@@ -340,6 +340,9 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
     public async Task<IReadOnlyList<TokenUsageEntry>> GetUsageEntriesAsync(string week, CancellationToken cancellationToken) =>
         await HaalAsync<TokenUsageEntry>($"/api/usage/entries?week={Uri.EscapeDataString(week)}", cancellationToken);
 
+    public async Task<IReadOnlyList<TokenUsageOnderdeel>> GetUsageOnderdelenAsync(int dagen, CancellationToken cancellationToken) =>
+        await HaalAsync<TokenUsageOnderdeel>($"/api/usage/onderdelen?dagen={dagen}", cancellationToken);
+
     /// <summary>
     /// Haalt een lijst op en geeft een LEGE lijst terug als er iets misgaat.
     /// Een overzicht is geen reden om een scherm te laten struikelen: dan

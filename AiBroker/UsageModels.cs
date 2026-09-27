@@ -15,7 +15,15 @@ public sealed record TokenUsageEntry(
     string? Model,
     long PromptTokens,
     long CompletionTokens,
-    long TotalTokens);
+    long TotalTokens,
+    string? Onderdeel = null);
+
+/// <summary>
+/// Het verbruik van één onderdeel van een applicatie over een periode, voor
+/// de vraag "waar gaan mijn tokens heen". Oude regels zonder onderdeel staan
+/// onder "—".
+/// </summary>
+public sealed record TokenUsageOnderdeel(string Application, string Onderdeel, long TotalTokens, int Calls);
 
 /// <summary>
 /// Het totaal van één week (maandag tot en met zondag, ISO-telling).
