@@ -89,6 +89,11 @@ public sealed record ConnectionTestResult(bool Success, string Message);
 /// afbreekt (0 of ontbrekend = geen apart limiet, de gewone
 /// <see cref="AiSettings.ChatTimeoutSeconden"/> blijft dan gelden). Beide
 /// optioneel en leeg bij een verse installatie.
+///
+/// <see cref="Omschrijvingen"/> is er ook per modelnaam: een korte, zelf
+/// getypte notitie over waar dat model goed in is (bijvoorbeeld "traag maar
+/// grondig" of "goed in XAML"). Puur ter herinnering voor de gebruiker - de
+/// applicaties doen er niets mee. Optioneel.
 /// </summary>
 public sealed record AiServerSettings(
     string Url,
@@ -98,7 +103,8 @@ public sealed record AiServerSettings(
     string ControleModel = "",
     string BeeldModel = "",
     IReadOnlyDictionary<string, int>? Sterren = null,
-    IReadOnlyDictionary<string, int>? MaxDenktijdSeconden = null)
+    IReadOnlyDictionary<string, int>? MaxDenktijdSeconden = null,
+    IReadOnlyDictionary<string, string>? Omschrijvingen = null)
 {
     /// <summary>De ingestelde modellen, zonder de lege. Dit is wat er aanwezig moet zijn.</summary>
     [JsonIgnore]
@@ -125,6 +131,10 @@ public sealed record AiServerSettings(
     /// limiet - de gewone ChatTimeoutSeconden blijft dan gelden).
     /// </summary>
     public int DenktijdVoor(string model) => Opzoeken(MaxDenktijdSeconden, model) ?? 0;
+
+    /// <summary>De zelf getypte notitie bij dit model, of leeg als er niets staat. Geen "standaard"-terugval: een omschrijving is per model persoonlijk.</summary>
+    public string OmschrijvingVoor(string model) =>
+        !string.IsNullOrWhiteSpace(model) && Omschrijvingen is not null && Omschrijvingen.TryGetValue(model, out var tekst) ? tekst : string.Empty;
 
     private static int? Opzoeken(IReadOnlyDictionary<string, int>? waarden, string model)
     {
