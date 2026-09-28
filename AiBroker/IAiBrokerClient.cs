@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace Jabasoft.Base.AiBroker;
 
 /// <summary>
@@ -7,7 +9,14 @@ namespace Jabasoft.Base.AiBroker;
 /// </summary>
 public interface IAiBrokerClient
 {
-    Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken);
+    /// <summary>
+    /// Geef je <paramref name="log"/> mee, dan bouwt en vult deze aanroep er
+    /// zelf een <see cref="Logregel"/> in - wat verzonden is meteen, het
+    /// antwoord zodra het binnen is. Een scherm dat wil laten zien wat er
+    /// tussen app en model heen en weer ging, hoeft dus zelf geen Logregel
+    /// te bouwen: alleen zijn eigen collectie meegeven en tonen.
+    /// </summary>
+    Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken, ObservableCollection<Logregel>? log = null);
 
     /// <summary>
     /// Hetzelfde gesprek, maar het antwoord komt stukje bij beetje binnen
@@ -19,8 +28,13 @@ public interface IAiBrokerClient
     /// tokens; ging er iets mis, dan draagt het de reden. De broker
     /// schrijft het verbruik ook in dat geval zelf weg - de aanroeper
     /// hoeft daar niets voor te doen.
+    ///
+    /// <paramref name="log"/> werkt hetzelfde als bij <see cref="ChatAsync"/>,
+    /// maar dan groeit <see cref="Logregel.OntvangenRuw"/> mee terwijl de
+    /// stukjes binnenkomen, in plaats van in één keer aan het eind gezet te
+    /// worden.
     /// </summary>
-    IAsyncEnumerable<ChatStreamChunk> ChatStreamAsync(ChatRequest request, CancellationToken cancellationToken);
+    IAsyncEnumerable<ChatStreamChunk> ChatStreamAsync(ChatRequest request, CancellationToken cancellationToken, ObservableCollection<Logregel>? log = null);
 
     Task<EmbedResult> EmbedAsync(EmbedRequest request, CancellationToken cancellationToken);
 

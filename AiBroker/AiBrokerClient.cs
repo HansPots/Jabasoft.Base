@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Net.Http.Json;
@@ -40,23 +42,57 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
     public static AiBrokerClient CreateDefault(string baseUrl = DefaultBaseUrl, TimeSpan? timeout = null) =>
         new(new HttpClient { BaseAddress = new Uri(baseUrl), Timeout = timeout ?? TimeSpan.FromMinutes(5) });
 
-    public async Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken)
+    public async Task<ChatResult> ChatAsync(ChatRequest request, CancellationToken cancellationToken, ObservableCollection<Logregel>? log = null)
     {
+        var logregel = StartLogregel(request, log);
+
         try
         {
             using var response = await httpClient.PostAsJsonAsync("/api/chat", request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                return new ChatResult(false, string.Empty, $"AI broker returned {(int)response.StatusCode}.");
+                var mislukt = new ChatResult(false, string.Empty, $"AI broker returned {(int)response.StatusCode}.");
+                if (logregel is not null)
+                {
+                    logregel.OntvangenRuw = mislukt.ErrorMessage ?? string.Empty;
+                }
+
+                return mislukt;
             }
 
-            var result = await response.Content.ReadFromJsonAsync<ChatResult>(cancellationToken);
-            return result ?? new ChatResult(false, string.Empty, "Empty response from the AI broker.");
+            var result = await response.Content.ReadFromJsonAsync<ChatResult>(cancellationToken)
+                ?? new ChatResult(false, string.Empty, "Empty response from the AI broker.");
+
+            if (logregel is not null)
+            {
+                logregel.OntvangenRuw = result.Success ? result.Reply : result.ErrorMessage ?? string.Empty;
+            }
+
+            return result;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            return new ChatResult(false, string.Empty, $"Could not reach the AI broker: {ex.Message}");
+            var mislukt = new ChatResult(false, string.Empty, $"Could not reach the AI broker: {ex.Message}");
+            if (logregel is not null)
+            {
+                logregel.OntvangenRuw = mislukt.ErrorMessage ?? string.Empty;
+            }
+
+            return mislukt;
         }
+    }
+
+    /// <summary>Bouwt (als <paramref name="log"/> is meegegeven) een Logregel voor deze aanroep en zet hem er meteen in - zie IAiBrokerClient.ChatAsync/ChatStreamAsync.</summary>
+    private static Logregel? StartLogregel(ChatRequest request, ObservableCollection<Logregel>? log)
+    {
+        if (log is null)
+        {
+            return null;
+        }
+
+        var logregel = new Logregel(request.Messages, request.Onderdeel ?? request.Application);
+        log.Add(logregel);
+        return logregel;
     }
 
     /// <summary>
@@ -73,10 +109,30 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
     /// in een catch toe - maar het leest ook eerlijker: er is één plek
     /// waar het einde vandaan komt.
     /// </summary>
+    /// <summary>
+    /// Hoe vaak <see cref="Logregel.OntvangenRuw"/> hoogstens bijgewerkt
+    /// wordt terwijl een antwoord binnenstroomt. Elke toewijzing kopieert de
+    /// hele tekst tot dan toe (<c>StringBuilder.ToString()</c>) en zet
+    /// zes PropertyChanged-events af naar het LogPaneel - bij honderden
+    /// stukjes per seconde (een snel lokaal model) werd dat vroeger op elk
+    /// stukje gedaan: kwadratisch in de lengte van het antwoord én een
+    /// herhaalde WPF-herrendering per stukje, wat de UI-draad liet
+    /// bevriezen zodra het antwoord wat langer werd. Nu hoogstens zo vaak
+    /// als hieronder, plus altijd nog één keer aan het einde - "live
+    /// meelezen" blijft vloeiend zonder dat elk los tokentje een eigen
+    /// update kost.
+    /// </summary>
+    private static readonly TimeSpan LogregelUpdateInterval = TimeSpan.FromMilliseconds(150);
+
     public async IAsyncEnumerable<ChatStreamChunk> ChatStreamAsync(
         ChatRequest request,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken,
+        ObservableCollection<Logregel>? log = null)
     {
+        var logregel = StartLogregel(request, log);
+        var ontvangenRuw = new StringBuilder();
+        var laatsteUpdate = System.Diagnostics.Stopwatch.StartNew();
+
         using var bericht = new HttpRequestMessage(HttpMethod.Post, "/api/chat/stream")
         {
             Content = JsonContent.Create(request, options: JsonOptions),
@@ -96,7 +152,13 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
 
         if (fout is not null || response is null)
         {
-            yield return new ChatStreamChunk(Done: true, ErrorMessage: fout ?? "No response from the AI broker.");
+            var reden = fout ?? "No response from the AI broker.";
+            if (logregel is not null)
+            {
+                logregel.OntvangenRuw = reden;
+            }
+
+            yield return new ChatStreamChunk(Done: true, ErrorMessage: reden);
             yield break;
         }
 
@@ -104,7 +166,13 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
         {
             if (!response.IsSuccessStatusCode)
             {
-                yield return new ChatStreamChunk(Done: true, ErrorMessage: $"AI broker returned {(int)response.StatusCode}.");
+                var reden = $"AI broker returned {(int)response.StatusCode}.";
+                if (logregel is not null)
+                {
+                    logregel.OntvangenRuw = reden;
+                }
+
+                yield return new ChatStreamChunk(Done: true, ErrorMessage: reden);
                 yield break;
             }
 
@@ -126,6 +194,11 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
 
                 if (fout is not null)
                 {
+                    if (logregel is not null)
+                    {
+                        logregel.OntvangenRuw = ontvangenRuw.Length > 0 ? $"{ontvangenRuw}\n\n[{fout}]" : fout;
+                    }
+
                     yield return new ChatStreamChunk(Done: true, ErrorMessage: fout);
                     yield break;
                 }
@@ -160,6 +233,31 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
                 if (stukje is null)
                 {
                     continue;
+                }
+
+                if (logregel is not null)
+                {
+                    if (!string.IsNullOrEmpty(stukje.Text))
+                    {
+                        ontvangenRuw.Append(stukje.Text);
+                    }
+
+                    // Niet bij elk stukje bijwerken (zie
+                    // LogregelUpdateInterval) - wel altijd bij het laatste
+                    // stukje (Done, ook als dat zelf geen Text meer draagt),
+                    // anders mist het paneel het staartje van het antwoord.
+                    if (stukje.Done || laatsteUpdate.Elapsed >= LogregelUpdateInterval)
+                    {
+                        logregel.OntvangenRuw = ontvangenRuw.ToString();
+                        laatsteUpdate.Restart();
+                    }
+
+                    if (stukje.ErrorMessage is not null)
+                    {
+                        logregel.OntvangenRuw = ontvangenRuw.Length > 0
+                            ? $"{ontvangenRuw}\n\n[{stukje.ErrorMessage}]"
+                            : stukje.ErrorMessage;
+                    }
                 }
 
                 yield return stukje;
