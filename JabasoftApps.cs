@@ -21,6 +21,7 @@ public static class JabasoftApps
         "Jabasoft.App",
         "LocalAiStudio.App",
         "TabStudio.App",
+        "ImageFunn.App",
         "Stylebook.Playground",
     ];
 
