@@ -24,6 +24,10 @@ namespace Jabasoft.Base.AiBroker;
 /// tijd helemaal niets bewegen. Alleen LM Studio's eigen API geeft dit; bij
 /// Ollama, of buiten die fase, blijft het null. Geen boekhouding zoals
 /// PromptTokens - puur een percentage om aan te tonen dat er gewerkt wordt.
+///
+/// <see cref="Truncated"/> staat alleen op het afsluitende stukje, en alleen als
+/// het model stopte omdat het contextvenster vol was (Ollama: done_reason
+/// "length"). De broker gebruikt dat om opnieuw te proberen met een groter venster.
 /// </summary>
 public sealed record ChatStreamChunk(
     string? Text = null,
@@ -32,4 +36,5 @@ public sealed record ChatStreamChunk(
     long CompletionTokens = 0,
     string? ErrorMessage = null,
     bool Thinking = false,
-    double? PromptProgress = null);
+    double? PromptProgress = null,
+    bool Truncated = false);
