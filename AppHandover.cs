@@ -158,6 +158,68 @@ public static class AppHandover
         return true;
     }
 
+    /// <summary>De vergrendeling die laat zien dat dit exemplaar het enige is - zie <see cref="ClaimSingleInstance"/>.</summary>
+    private static Mutex? _enigExemplaar;
+
+    /// <summary>
+    /// Zorgt dat er maar één exemplaar van deze applicatie draait. Roep dit
+    /// als eerste aan bij het opstarten; geeft het false, sluit dan meteen af.
+    ///
+    /// Waarom niet alleen <see cref="ActivateExistingInstance"/>: die zoekt een
+    /// VENSTER van een ander exemplaar, en een exemplaar dat net gestart is
+    /// heeft dat nog niet. Twee keer snel achter elkaar starten (of het
+    /// startscript dat eerst nog een paar seconden bouwt) leverde zo twee
+    /// exemplaren op. Een benoemde mutex is er wél meteen: het eerste exemplaar
+    /// claimt hem, een volgend exemplaar ziet dat, wacht tot het venster van
+    /// het eerste er is, haalt dat naar voren en stopt.
+    /// </summary>
+    /// <param name="naam">Naam van de applicatie, bijv. "Jabasoft.App" - per gebruiker uniek.</param>
+    public static bool ClaimSingleInstance(string naam)
+    {
+        var mutex = new Mutex(initiallyOwned: true, $@"Local\JabaSoft.{naam}.EnigExemplaar", out var nieuw);
+        if (nieuw)
+        {
+            _enigExemplaar = mutex;
+            return true;
+        }
+
+        mutex.Dispose();
+
+        // Het andere exemplaar kan nog aan het opstarten zijn: wacht even op zijn venster.
+        var tot = DateTime.UtcNow + StartupTimeout;
+        while (DateTime.UtcNow < tot && !ActivateExistingInstance())
+        {
+            Thread.Sleep(200);
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Geeft de vergrendeling van <see cref="ClaimSingleInstance"/> weer vrij.
+    /// Aanroepen aan het begin van het afsluiten: wie dan de app opnieuw
+    /// start, hoeft niet te wachten tot het opruimen klaar is.
+    /// </summary>
+    public static void ReleaseSingleInstance()
+    {
+        if (_enigExemplaar is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _enigExemplaar.ReleaseMutex();
+        }
+        catch (ApplicationException)
+        {
+            // Niet van deze thread - bij het afsluiten geen reden om te blijven hangen.
+        }
+
+        _enigExemplaar.Dispose();
+        _enigExemplaar = null;
+    }
+
     /// <summary>Zoekt het venster van de applicatie; draait ze niet, dan wordt ze gestart en wachten we tot er een venster is.</summary>
     private static IntPtr ZoekOfStart(string executablePath)
     {
