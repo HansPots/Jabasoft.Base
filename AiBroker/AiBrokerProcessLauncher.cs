@@ -27,7 +27,7 @@ public static class AiBrokerProcessLauncher
 
     public static async Task EnsureRunningAsync(
         string baseUrl = AiBrokerClient.DefaultBaseUrl,
-        string projectPath = @"C:\Repos\Jabasoft.Broker",
+        string projectPath = @"D:\GitHub\Jabasoft.Broker",
         CancellationToken cancellationToken = default)
     {
         using var probeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
