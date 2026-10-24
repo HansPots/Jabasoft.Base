@@ -17,4 +17,10 @@
     <None Remove="Jabasoft.Ai.Data\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- De projectmap, vastgelegd bij het bouwen: AiBrokerProcessLauncher
+         vindt het Jabasoft.Broker-project ernaast, waar de repo's ook staan. -->
+    <AssemblyMetadata Include="ProjectMap" Value="$(MSBuildProjectDirectory)" />
+  </ItemGroup>
+
 </Project>

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 
 namespace Jabasoft.Base.AiBroker;
 
@@ -25,11 +26,30 @@ public static class AiBrokerProcessLauncher
 {
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(45);
 
+    /// <summary>
+    /// De map van het Jabasoft.Broker-project: naast deze repo, dus
+    /// &lt;map van Jabasoft.Base&gt;\..\Jabasoft.Broker. De map van
+    /// Jabasoft.Base wordt bij het bouwen vastgelegd (zie Jabasoft.Base.csproj)
+    /// in plaats van hier uitgeschreven: een vast pad als D:\GitHub\... ging
+    /// mis zodra de repo's ergens anders kwamen te staan, en dan startte de
+    /// broker stilletjes niet - met "database niet bereikbaar" als gevolg.
+    /// </summary>
+    public static readonly string DefaultProjectPath = Path.GetFullPath(
+        Path.Combine(ProjectMap(), "..", "Jabasoft.Broker"));
+
+    private static string ProjectMap() =>
+        typeof(AiBrokerProcessLauncher).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .FirstOrDefault(a => a.Key == "ProjectMap")?.Value
+        ?? AppContext.BaseDirectory;
+
     public static async Task EnsureRunningAsync(
         string baseUrl = AiBrokerClient.DefaultBaseUrl,
-        string projectPath = @"D:\GitHub\Jabasoft.Broker",
+        string? projectPath = null,
         CancellationToken cancellationToken = default)
     {
+        projectPath ??= DefaultProjectPath;
+
         using var probeClient = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
         if (await IsHealthyAsync(probeClient, baseUrl).ConfigureAwait(false))
         {

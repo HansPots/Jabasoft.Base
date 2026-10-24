@@ -16,7 +16,7 @@ public sealed class AiDbContextFactory : IDesignTimeDbContextFactory<AiDbContext
     private const string ConnectionStringEnvironmentVariable = "JABASOFT_AI_CONNECTION_STRING";
 
     private const string DefaultConnectionString =
-        "Server=localhost;Database=JabasoftAi;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
+        "Server=(localdb)\\MSSQLLocalDB;Database=JabasoftAi;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
 
     public AiDbContext CreateDbContext(string[] args)
     {

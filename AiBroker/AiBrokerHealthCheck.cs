@@ -16,7 +16,7 @@ namespace Jabasoft.Base.AiBroker;
 /// </summary>
 public sealed class AiBrokerHealthCheck(
     string baseUrl = AiBrokerClient.DefaultBaseUrl,
-    string projectPath = @"D:\GitHub\Jabasoft.Broker",
+    string? projectPath = null,
     TimeSpan? probeTimeout = null) : IHealthCheck
 {
     private readonly TimeSpan _probeTimeout = probeTimeout ?? TimeSpan.FromSeconds(2);
