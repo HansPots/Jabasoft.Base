@@ -441,6 +441,22 @@ public sealed class AiBrokerClient(HttpClient httpClient) : IAiBrokerClient
     public async Task<IReadOnlyList<TokenUsageOnderdeel>> GetUsageOnderdelenAsync(int dagen, CancellationToken cancellationToken) =>
         await HaalAsync<TokenUsageOnderdeel>($"/api/usage/onderdelen?dagen={dagen}", cancellationToken);
 
+    public async Task<IReadOnlyList<WachtrijItem>> GetQueueAsync(CancellationToken cancellationToken) =>
+        await HaalAsync<WachtrijItem>("/api/queue", cancellationToken);
+
+    public async Task<bool> CancelQueueItemAsync(long id, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await httpClient.PostAsync($"/api/queue/{id}/annuleren", null, cancellationToken);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Haalt een lijst op en geeft een LEGE lijst terug als er iets misgaat.
     /// Een overzicht is geen reden om een scherm te laten struikelen: dan

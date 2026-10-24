@@ -90,4 +90,10 @@ public interface IAiBrokerClient
 
     /// <summary>Het verbruik per onderdeel van de laatste <paramref name="dagen"/> dagen, het zwaarste eerst.</summary>
     Task<IReadOnlyList<TokenUsageOnderdeel>> GetUsageOnderdelenAsync(int dagen, CancellationToken cancellationToken);
+
+    /// <summary>De wachtrij van de broker: wat er loopt, wat er wacht en wat net klaar is. Leeg als de broker niet bereikbaar is.</summary>
+    Task<IReadOnlyList<WachtrijItem>> GetQueueAsync(CancellationToken cancellationToken);
+
+    /// <summary>Haalt een wachtende vraag uit de rij, of breekt een lopende af. False als hij er niet (meer) is.</summary>
+    Task<bool> CancelQueueItemAsync(long id, CancellationToken cancellationToken);
 }
