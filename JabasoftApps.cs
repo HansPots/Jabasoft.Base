@@ -23,6 +23,7 @@ public static class JabasoftApps
         "TabStudio.App",
         "ImageFunn.App",
         "Stylebook.Playground",
+        "AiProefbank.App",
     ];
 
     /// <summary>Hoort dit proces bij de familie?</summary>
