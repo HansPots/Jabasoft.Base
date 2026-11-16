@@ -104,8 +104,63 @@ public sealed record AiServerSettings(
     string BeeldModel = "",
     IReadOnlyDictionary<string, int>? Sterren = null,
     IReadOnlyDictionary<string, int>? MaxDenktijdSeconden = null,
-    IReadOnlyDictionary<string, string>? Omschrijvingen = null)
+    IReadOnlyDictionary<string, string>? Omschrijvingen = null,
+    IReadOnlyList<string>? Favorieten = null,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? FavorietenPerOnderdeel = null,
+    IReadOnlyList<string>? Verborgen = null)
 {
+    /// <summary>
+    /// Heeft de gebruiker dit model in de modeltabel op "niet tonen" gezet? Dan staat het niet meer in de
+    /// modelkeuzelijsten (AI-, Hermes- en Goose-kaart, en de modellijst die Hermes en Goose via de broker zien) -
+    /// behalve waar het nu ingesteld staat, anders zou een kaart je keuze stilletjes wissen.
+    /// </summary>
+    public bool IsVerborgen(string model) =>
+        !string.IsNullOrWhiteSpace(model) && Verborgen is not null && Verborgen.Contains(model, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Dezelfde instellingen, met dit model wel of niet verborgen.</summary>
+    public AiServerSettings MetVerborgen(string model, bool verborgen)
+    {
+        var lijst = (Verborgen ?? []).Where(naam => !string.Equals(naam, model, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (verborgen)
+        {
+            lijst.Add(model);
+        }
+
+        return this with { Verborgen = lijst };
+    }
+
+    /// <summary>
+    /// Is dit model een favoriet voor dit onderdeel (gele ster in die kolom van de modeltabel)? Per onderdeel
+    /// kunnen het er meer zijn. <see cref="Favorieten"/> is de oude lijst van vóór de splitsing per onderdeel -
+    /// de broker zet die bij het laden om naar alle onderdelen (zie AiSettingsStore).
+    /// </summary>
+    public bool IsFavoriet(string model, string onderdeel) =>
+        !string.IsNullOrWhiteSpace(model) &&
+        FavorietenPerOnderdeel is not null &&
+        FavorietenPerOnderdeel.TryGetValue(onderdeel, out var lijst) &&
+        lijst.Contains(model, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Is dit model voor minstens één onderdeel een favoriet?</summary>
+    public bool IsFavoriet(string model) =>
+        !string.IsNullOrWhiteSpace(model) &&
+        FavorietenPerOnderdeel is not null &&
+        FavorietenPerOnderdeel.Values.Any(lijst => lijst.Contains(model, StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>Dezelfde instellingen, met dit model voor dit onderdeel wel of niet als favoriet.</summary>
+    public AiServerSettings MetFavoriet(string model, string onderdeel, bool favoriet)
+    {
+        var alle = new Dictionary<string, IReadOnlyList<string>>(FavorietenPerOnderdeel ?? new Dictionary<string, IReadOnlyList<string>>(), StringComparer.OrdinalIgnoreCase);
+        var lijst = (alle.TryGetValue(onderdeel, out var huidig) ? huidig : []).ToList();
+        lijst.RemoveAll(naam => string.Equals(naam, model, StringComparison.OrdinalIgnoreCase));
+        if (favoriet)
+        {
+            lijst.Add(model);
+        }
+
+        alle[onderdeel] = lijst;
+        return this with { FavorietenPerOnderdeel = alle };
+    }
+
     /// <summary>De ingestelde modellen, zonder de lege. Dit is wat er aanwezig moet zijn.</summary>
     [JsonIgnore]
     public IReadOnlyList<string> Models =>
