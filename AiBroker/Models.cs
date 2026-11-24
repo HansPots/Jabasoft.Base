@@ -107,7 +107,16 @@ public sealed record AiServerSettings(
     IReadOnlyDictionary<string, string>? Omschrijvingen = null,
     IReadOnlyList<string>? Favorieten = null,
     IReadOnlyDictionary<string, IReadOnlyList<string>>? FavorietenPerOnderdeel = null,
-    IReadOnlyList<string>? Verborgen = null)
+    IReadOnlyList<string>? Verborgen = null,
+    // De modellen van Goose en Hermes OP DEZE SERVER. Voor LM Studio staan ze
+    // in de eigen config van Goose en Hermes (die bestanden blijven de
+    // LM Studio-namen houden); voor Ollama hier, omdat de namen daar anders
+    // zijn. Zo neemt wisselen van chatserver ook het model van Goose en Hermes
+    // mee. Leeg = het chatmodel van deze server. HermesLokaalModel is het
+    // lokale bijtaak-/beeldmodel van de Hermes-kaart.
+    string GooseModel = "",
+    string HermesModel = "",
+    string HermesLokaalModel = "")
 {
     /// <summary>
     /// Heeft de gebruiker dit model in de modeltabel op "niet tonen" gezet? Dan staat het niet meer in de
@@ -248,7 +257,16 @@ public sealed record AiSettings(
     // aangeroepen wordt (chat, code, controle), niet voor een specifieke
     // serversoort. Standaard 300s (5 min), net zoals AiBrokerClient dat al
     // altijd deed voordat dit instelbaar werd.
-    double ChatTimeoutSeconden = 300)
+    double ChatTimeoutSeconden = 300,
+    // Op welke serversoort het ZOEKEN (embedding) loopt - los van
+    // Provider, dat de chat kiest. De zoekindex hoort bij één
+    // embeddingmodel; zou hij met de chatserver meewisselen, dan moest bij
+    // elke wissel LM Studio <-> Ollama de hele index opnieuw. Zo wisselt de
+    // chat (en daarmee ook Goose en Hermes) vrij, en blijft de index geldig.
+    // Het embeddingmodel zelf staat bij die soort (AiServerSettings.EmbedModel).
+    // null = nog niet gekozen (instelling van vóór deze splitsing): de broker
+    // zet hem bij het laden vast op de soort die toen gekozen was.
+    AiProvider? ZoekProvider = null)
 {
     /// <summary>De standaardpoort van LM Studio's OpenAI-compatibele server.</summary>
     public const string DefaultLmStudioUrl = "http://localhost:1234";
@@ -270,9 +288,29 @@ public sealed record AiSettings(
     [JsonIgnore]
     public string ActiveServerUrl => Active.Url;
 
-    /// <summary>De modellen die op de nu gekozen server aanwezig moeten zijn.</summary>
+    /// <summary>De serversoort waar het zoeken (embedding en de zoekindex) langs gaat - zie <see cref="ZoekProvider"/>.</summary>
     [JsonIgnore]
-    public IReadOnlyList<string> ConfiguredModels => Active.Models;
+    public AiProvider ZoekSoort => ZoekProvider ?? Provider;
+
+    /// <summary>De gegevens van de zoekserver.</summary>
+    [JsonIgnore]
+    public AiServerSettings ZoekServer => ZoekSoort == AiProvider.Ollama ? Ollama : LmStudio;
+
+    /// <summary>Het adres van de zoekserver.</summary>
+    [JsonIgnore]
+    public string ZoekServerUrl => ZoekServer.Url;
+
+    /// <summary>Het embeddingmodel waarmee gezocht en geïndexeerd wordt. Gebruik dit, niet Active.EmbedModel.</summary>
+    [JsonIgnore]
+    public string ZoekModel => ZoekServer.EmbedModel;
+
+    /// <summary>
+    /// De modellen die op de nu gekozen (chat)server aanwezig moeten zijn. Het embeddingmodel alleen als het
+    /// zoeken ook op deze server loopt - anders hoort het bij de andere server en hoeft het hier niet te staan.
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<string> ConfiguredModels =>
+        ZoekSoort == Provider ? Active.Models : (Active with { EmbedModel = string.Empty }).Models;
 
     /// <summary>Vervangt de gegevens van EEN soort en laat de andere staan.</summary>
     public AiSettings With(AiProvider provider, AiServerSettings server) => provider == AiProvider.Ollama

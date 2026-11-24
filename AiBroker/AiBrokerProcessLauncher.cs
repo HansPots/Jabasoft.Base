@@ -15,6 +15,11 @@ namespace Jabasoft.Base.AiBroker;
 /// immers nodig. Zo blijft er na een dag werken geen brokerproces hangen,
 /// zonder dat een app de broker onder een ander zijn voeten wegtrekt.
 ///
+/// Maar alleen als deze app hem zelf gestart heeft. Draaide hij al toen
+/// de app opstartte - meestal omdat de aanmeldtaak "Jabasoft Broker" hem
+/// gestart heeft (zie Jabasoft.Broker/Beheer) - dan blijft hij staan,
+/// zodat Goose en Hermes ook zonder Jabasoft blijven werken.
+///
 /// Known limitation: a plain <see cref="Process.Start(ProcessStartInfo)"/>
 /// child can still be killed if the *launching* process itself runs inside
 /// a Windows Job Object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE (some IDE
@@ -81,6 +86,7 @@ public static class AiBrokerProcessLauncher
             // nothing else in any app should ever reference this Process
             // object (that's what would let something kill it later).
             Process.Start(startInfo);
+            _zelfGestart = true;
         }
         catch
         {
@@ -103,6 +109,9 @@ public static class AiBrokerProcessLauncher
     /// <summary>De procesnaam van de broker - waarop we hem terugvinden om hem te stoppen.</summary>
     private const string BrokerProcessName = "Jabasoft.Broker";
 
+    /// <summary>Of <see cref="EnsureRunningAsync"/> in dit proces de broker zelf gestart heeft.</summary>
+    private static bool _zelfGestart;
+
     /// <summary>
     /// Stopt de broker, maar alleen als deze applicatie de laatste is die
     /// hem nog nodig had. Roep dit aan bij het afsluiten.
@@ -118,6 +127,13 @@ public static class AiBrokerProcessLauncher
     /// </summary>
     public static void StopIfUnused()
     {
+        // Niet door ons gestart (de aanmeldtaak, of een andere app): dan is
+        // het ook niet aan ons om hem te stoppen.
+        if (!_zelfGestart)
+        {
+            return;
+        }
+
         var self = Environment.ProcessId;
 
         var anderen = Process.GetProcesses()
