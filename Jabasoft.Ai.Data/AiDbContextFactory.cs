@@ -6,7 +6,7 @@ namespace Jabasoft.Ai.Data;
 /// <summary>
 /// Creates <see cref="AiDbContext"/> for design-time EF Core tooling.
 /// Reads the connection string from JABASOFT_AI_CONNECTION_STRING when
-/// set (matches ConnectionStrings:JabasoftAi in Jabasoft.Broker's
+/// set (matches ConnectionStrings:JabasoftBroker in Jabasoft.Broker's
 /// appsettings.json), otherwise falls back to the default local SQL
 /// Server instance - same pattern as Stylebook.Data's
 /// StylebookDbContextFactory.
@@ -16,7 +16,7 @@ public sealed class AiDbContextFactory : IDesignTimeDbContextFactory<AiDbContext
     private const string ConnectionStringEnvironmentVariable = "JABASOFT_AI_CONNECTION_STRING";
 
     private const string DefaultConnectionString =
-        "Server=(localdb)\\MSSQLLocalDB;Database=JabasoftAi;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
+        "Server=(localdb)\\MSSQLLocalDB;Database=JabasoftBroker;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
 
     public AiDbContext CreateDbContext(string[] args)
     {
