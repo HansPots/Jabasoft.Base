@@ -9,16 +9,13 @@ namespace Jabasoft.Base.AiBroker;
 /// whichever app happens to run first is the one that actually starts it,
 /// the others just find it already reachable.
 ///
-/// Bij het afsluiten roept een app <see cref="StopIfUnused"/> aan: is
-/// hij de laatste JabaSoft-applicatie die draait, dan gaat de broker mee
-/// uit. Draait er nog een andere, dan blijft hij staan - die heeft hem
-/// immers nodig. Zo blijft er na een dag werken geen brokerproces hangen,
-/// zonder dat een app de broker onder een ander zijn voeten wegtrekt.
-///
-/// Maar alleen als deze app hem zelf gestart heeft. Draaide hij al toen
-/// de app opstartte - meestal omdat de aanmeldtaak "Jabasoft Broker" hem
-/// gestart heeft (zie Jabasoft.Broker/Beheer) - dan blijft hij staan,
-/// zodat Goose en Hermes ook zonder Jabasoft blijven werken.
+/// Een app stopt de broker NOOIT (besloten 24-11-2026). De broker is een
+/// losse dienst die ook Goose, Hermes, Claude en Jabasoft.Brug gebruiken;
+/// een app die afsluit weet niet wie hem verder nog nodig heeft. Eerder
+/// stopte <see cref="StopIfUnused"/> hem als de app dacht de laatste te
+/// zijn, maar die telling klopte niet (de Brug stond niet in de lijst) en
+/// trok de broker onder de Brug vandaan. Stoppen gaat alleen nog via het
+/// traypictogram of de beheerscripts in Jabasoft.Broker/Beheer.
 ///
 /// Known limitation: a plain <see cref="Process.Start(ProcessStartInfo)"/>
 /// child can still be killed if the *launching* process itself runs inside
@@ -86,7 +83,6 @@ public static class AiBrokerProcessLauncher
             // nothing else in any app should ever reference this Process
             // object (that's what would let something kill it later).
             Process.Start(startInfo);
-            _zelfGestart = true;
         }
         catch
         {
@@ -106,66 +102,14 @@ public static class AiBrokerProcessLauncher
         }
     }
 
-    /// <summary>De procesnaam van de broker - waarop we hem terugvinden om hem te stoppen.</summary>
-    private const string BrokerProcessName = "Jabasoft.Broker";
-
-    /// <summary>Of <see cref="EnsureRunningAsync"/> in dit proces de broker zelf gestart heeft.</summary>
-    private static bool _zelfGestart;
-
     /// <summary>
-    /// Stopt de broker, maar alleen als deze applicatie de laatste is die
-    /// hem nog nodig had. Roep dit aan bij het afsluiten.
-    ///
-    /// "Nog een andere applicatie" = een draaiend proces dat in
-    /// <see cref="JabasoftApps.ProcessNames"/> staat, dit proces niet
-    /// meegerekend.
-    ///
-    /// Dat was eerder een voorvoegsel ("Jabasoft."), en dat ging mis zodra
-    /// er een tweede applicatie kwam: LocalAiStudio.App begint daar niet
-    /// mee, dus nam Jabasoft bij het afsluiten de broker mee terwijl die
-    /// er nog op leunde.
+    /// Deed vroeger: de broker stoppen als deze app de laatste was. Doet nu
+    /// bewust NIETS - een app stopt de broker nooit meer (zie de toelichting
+    /// bovenaan deze klasse). Blijft bestaan zodat de apps die dit bij het
+    /// afsluiten nog aanroepen, gewoon blijven bouwen.
     /// </summary>
     public static void StopIfUnused()
     {
-        // Niet door ons gestart (de aanmeldtaak, of een andere app): dan is
-        // het ook niet aan ons om hem te stoppen.
-        if (!_zelfGestart)
-        {
-            return;
-        }
-
-        var self = Environment.ProcessId;
-
-        var anderen = Process.GetProcesses()
-            .Where(p => p.Id != self && JabasoftApps.IsFamily(p.ProcessName))
-            .ToList();
-
-        foreach (var proces in anderen)
-        {
-            proces.Dispose();
-        }
-
-        if (anderen.Count > 0)
-        {
-            return;
-        }
-
-        foreach (var broker in Process.GetProcessesByName(BrokerProcessName))
-        {
-            try
-            {
-                broker.Kill();
-            }
-            catch (Exception)
-            {
-                // Al gestopt, of we mogen er niet bij. Niets aan te doen bij
-                // het afsluiten, en zeker niets om de app voor op te houden.
-            }
-            finally
-            {
-                broker.Dispose();
-            }
-        }
     }
 
     private static async Task<bool> IsHealthyAsync(HttpClient client, string baseUrl)

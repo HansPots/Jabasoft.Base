@@ -12,19 +12,18 @@ namespace Jabasoft.Base;
 ///
 /// Opruimen gebeurt ALLEEN als er geen andere app van de familie draait: die kan zo'n dienst nodig hebben,
 /// en daar zou je dan onder wegtrekken.
+///
+/// De AI-broker valt hier sinds 24-11-2026 BUITEN: een app stopt de broker nooit meer. Hij is een losse
+/// dienst die ook Goose, Hermes, Claude en Jabasoft.Brug gebruiken (zie AiBrokerProcessLauncher).
 /// </summary>
 public static class FamilieServices
 {
-    /// <summary>De poorten waarop de diensten luisteren, met hun naam voor het logboek.</summary>
+    /// <summary>De poorten waarop de diensten luisteren, met hun naam voor het logboek. Zonder de broker (5310).</summary>
     public static readonly IReadOnlyList<(string Naam, int Poort)> Diensten =
     [
-        ("AI-broker", 5310),
         ("TabStudio-audioservice", 5320),
         ("ImageFunn-beeldservice", 5330),
     ];
-
-    /// <summary>De procesnaam van de broker (zonder .exe), die ook zonder luisterende poort kan blijven hangen.</summary>
-    private const string BrokerProces = "Jabasoft.Broker";
 
     /// <summary>Draait er een app van de familie, behalve de aanroeper zelf?</summary>
     public static bool AndereAppDraait()
@@ -62,18 +61,6 @@ public static class FamilieServices
             if (StopPoort(poort))
             {
                 gestopt.Add(naam);
-            }
-        }
-
-        // Een broker die niet meer luistert maar nog bestanden vasthoudt.
-        foreach (var proces in Process.GetProcessesByName(BrokerProces))
-        {
-            using (proces)
-            {
-                if (Stop(proces))
-                {
-                    gestopt.Add($"{BrokerProces} (proces {proces.Id})");
-                }
             }
         }
 
